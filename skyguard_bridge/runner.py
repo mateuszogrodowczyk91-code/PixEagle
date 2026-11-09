@@ -13,10 +13,49 @@ from . import safety
 from .config import device_name, load_config
 from .detectors import build_detector
 from .sink import EvidenceSink
-from .sources import redact_log_line,  OnvifPanReader, open_source
+from .sources import redact_log_line, OnvifPanReader, open_source
 from .tracks import TrackEventManager
 
 log = logging.getLogger("skyguard_bridge")
+
+
+class _RedactFilter(logging.Filter):
+    """Strip rtsp://user:pass@ (and http/https) from every log record."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            record.msg = redact_log_line(str(record.msg))
+            if record.args:
+                record.args = tuple(
+                    redact_log_line(a) if isinstance(a, str) else a for a in record.args
+                )
+        except Exception:
+            pass
+        return True
+
+
+class _RedactStream:
+    """Wrap a text stream so OpenCV/ffmpeg prints cannot leak userinfo."""
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def write(self, data):
+        if not data:
+            return 0
+        text = data.decode("utf-8", "replace") if isinstance(data, (bytes, bytearray)) else str(data)
+        return self._inner.write(redact_log_line(text))
+
+    def flush(self):
+        return self._inner.flush()
+
+    def fileno(self):
+        return self._inner.fileno()
+
+    def isatty(self):
+        return getattr(self._inner, "isatty", lambda: False)()
+
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -135,6 +174,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO if a.verbose else logging.WARNING,
                         format="%(asctime)s %(name)s %(message)s")
+    _rf = _RedactFilter()
+    for h in logging.root.handlers:
+        h.addFilter(_rf)
+    log.addFilter(_rf)
+    # OpenCV / ffmpeg write to the real stderr fd; wrap Python stderr for anything that uses it.
+    if not isinstance(sys.stderr, _RedactStream):
+        try:
+            sys.stderr = _RedactStream(sys.stderr)  # type: ignore[assignment]
+        except Exception:
+            pass
     cfg = load_config(a.config if os.path.exists(a.config) else None)
     if a.input:
         cfg["input"]["type"] = a.input
