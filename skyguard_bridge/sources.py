@@ -62,10 +62,14 @@ class CvSource(FrameSource):
     def __init__(self, target: Any, label: str, loop: bool = False) -> None:
         if cv2 is None:
             raise RuntimeError("opencv-python is required")
-        if isinstance(target, str) and target.lower().startswith("rtsp://"):
-            os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
         self.target, self.label, self.loop = target, label, loop
-        if isinstance(target, int) and os.name == "nt":
+        if isinstance(target, str) and target.lower().startswith("rtsp://"):
+            # Force FFMPEG + TCP. Without CAP_FFMPEG, Windows builds may try CAP_IMAGES and leak the URL into errors.
+            os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
+            self.cap = cv2.VideoCapture(target, cv2.CAP_FFMPEG)
+            if not self.cap.isOpened():
+                self.cap = cv2.VideoCapture(target)
+        elif isinstance(target, int) and os.name == "nt":
             self.cap = cv2.VideoCapture(target, cv2.CAP_DSHOW)
             if not self.cap.isOpened():
                 self.cap = cv2.VideoCapture(target, cv2.CAP_MSMF)
@@ -74,7 +78,7 @@ class CvSource(FrameSource):
         else:
             self.cap = cv2.VideoCapture(target)
         if not self.cap.isOpened():
-            raise RuntimeError(f"cannot open video input: {label}")
+            raise RuntimeError(f"cannot open video input: {redact_url(label) if isinstance(label, str) else label}")
 
     def read(self):
         ok, frame = self.cap.read()
@@ -175,10 +179,25 @@ def open_source(cfg: Dict[str, Any]) -> FrameSource:
             raise RuntimeError(f"input.url (or {env}) is required for {t}: rtsp://... or http://.../video")
         return CvSource(url, inp.get("label") or f"{t} {redact_url(url)}")
     if t == "cloudedge":
-        url, label = cloudedge_rtsp_url(inp["cloudedge"])
-        if url is None:
-            raise RuntimeError("CloudEdge needs CLOUDEDGE_IP and CLOUDEDGE_PASSWORD in the environment")
-        return CvSource(url, inp.get("label") or label)
+        ce = dict(inp.get("cloudedge") or {})
+        last_err = None
+        for stream in ("main", "sub"):  # 101 then 102
+            ce["stream"] = stream
+            url, label = cloudedge_rtsp_url(ce)
+            if url is None:
+                raise RuntimeError("CloudEdge needs CLOUDEDGE_IP and CLOUDEDGE_PASSWORD in the environment")
+            try:
+                return CvSource(url, inp.get("label") or label)
+            except RuntimeError as e:
+                last_err = e
+        # USB webcam fallback when RTSP will not open
+        if bool(inp.get("webcam_fallback", True)):
+            idx = int(inp.get("webcam_index", 0))
+            try:
+                return CvSource(idx, inp.get("label") or f"webcam {idx} (cloudedge fallback)")
+            except RuntimeError as e:
+                last_err = e
+        raise last_err or RuntimeError("CloudEdge RTSP open failed")
     if t == "webcam":
         idx = int(inp.get("webcam_index", 0))
         return CvSource(idx, inp.get("label") or f"webcam {idx}")
