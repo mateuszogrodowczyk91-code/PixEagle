@@ -1,0 +1,51 @@
+# SkyGuard passive visual sensor (PixEagle) - DETECTION ONLY.
+# No follow / offboard / MAVLink / PTZ auto-tracking. The bridge refuses to
+# start if any such key below is set to true.
+mode: detection_only
+
+skyguard:
+  enabled: false            # OFF by default. Turn on here, with --send, or SKYGUARD_PIXEAGLE_ENABLED=1
+  base_url: https://hfluinbjituqaaagdkhl.supabase.co/functions/v1/skyguard   # or env SKYGUARD_HOST
+  token_env: SKYGUARD_TOKEN_PIXEAGLE   # token is read from this env var, never stored here
+  min_interval_s: 2.0       # max one 'update' per track per 2 s; 'start' and 'end' always sent
+  post_start_end: true
+  max_events_per_min: 60    # global cap
+
+input:
+  type: ptz                 # ptz (tripod) | pixel | cloudedge | webcam | file | ingest | synthetic
+  url: ""                   # ptz/pixel: rtsp://user:pass@IP:554/... or set PIXEAGLE_PTZ_URL / PIXEAGLE_PIXEL_URL
+  webcam_index: 0
+  file: resources/test1.mp4
+  cloudedge:                # optional home camera; password only from env CLOUDEDGE_PASSWORD
+    ip_env: CLOUDEDGE_IP
+    password_env: CLOUDEDGE_PASSWORD
+    port: 8554
+    stream: main            # main=/Streaming/Channels/101, sub=/102
+
+camera:
+  hfov_deg: null            # e.g. 60 -> enables bearing_deg_est
+  heading_deg: null         # fixed azimuth of the tripod (deg from north)
+  ptz_onvif:
+    enabled: false          # read-only GetStatus pan -> heading; never moves the camera
+    host: ""
+    port: 80
+    profile_token: ""
+    pan_min_deg: -180
+    pan_max_deg: 180
+    pan_zero_heading_deg: 0
+
+detector:
+  type: auto                # auto = PixEagle YOLO if installed, else motion
+  model_path: models/yolo26n.pt
+  device: cpu
+  conf: 0.35
+  iou: 0.3
+  tracker: bytetrack
+  classes: [drone, uav, airplane, aircraft, helicopter, bird, kite]   # aerial only; [] = all
+
+# Explicitly off. Kept here so it is visible; setting any to true aborts startup.
+follow: false
+offboard: false
+mavlink_commands: false
+auto_slew_to_cue: false
+ptz_auto_track: false

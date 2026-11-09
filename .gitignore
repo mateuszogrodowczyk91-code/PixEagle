@@ -237,3 +237,6 @@ reports/
 
 # Claude Code settings (keep local, exclude from repo)
 .claude/
+
+# SkyGuard local sensor config
+skyguard_sensor.local.yaml
