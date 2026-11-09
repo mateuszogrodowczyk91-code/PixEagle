@@ -21,7 +21,8 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def run(cfg: Dict[str, Any], *, sink: Optional[EvidenceSink] = None,
-        events_out: Optional[str] = None) -> Dict[str, Any]:
+        events_out: Optional[str] = None, preview_port: Optional[int] = None,
+        stop_event: Optional[Any] = None) -> Dict[str, Any]:
     safety.assert_config_detection_only(cfg)
     baseline = frozenset(safety.loaded_forbidden_modules())
     os.chdir(REPO_ROOT)
@@ -52,12 +53,17 @@ def run(cfg: Dict[str, Any], *, sink: Optional[EvidenceSink] = None,
     min_dt = 1.0 / float(rt["max_fps"]) if rt.get("max_fps") else 0.0
     max_frames = int(rt.get("max_frames") or 0)
     is_live = cfg["input"]["type"] not in ("file", "synthetic")
-    fh = open(events_out, "w", encoding="utf-8") if events_out else None
+    fh = open(events_out, "a", encoding="utf-8", buffering=1) if events_out else None
+    preview = None
+    if preview_port is not None:
+        from .preview import PreviewServer
+        preview = PreviewServer(preview_port)
     stats: Dict[str, Any] = {"frames": 0, "detections": 0, "events": 0, "posted": 0, "device": mgr.device,
                              "detector": det.name, "input": mgr.input_type, "skyguard_enabled": sink.enabled}
     t_start = time.time()
+    fps_t, fps_n = time.time(), 0
     try:
-        while True:
+        while not (stop_event is not None and stop_event.is_set()):
             t0 = time.time()
             ok, frame = src.read()
             if not ok:
@@ -69,6 +75,16 @@ def run(cfg: Dict[str, Any], *, sink: Optional[EvidenceSink] = None,
             stats["detections"] += len(dets)
             for e in mgr.update(dets, ts, (frame.shape[1], frame.shape[0])):
                 _emit(e, sink, fh, stats)
+            if preview is not None:
+                preview.push(frame, dets)
+                fps_n += 1
+                if time.time() - fps_t >= 2.0:
+                    stats["fps"] = round(fps_n / (time.time() - fps_t), 1)
+                    fps_t, fps_n = time.time(), 0
+                preview.status.update(stats, video_source=src.label, frame_w=frame.shape[1], frame_h=frame.shape[0],
+                                      active_tracks=[{"track_id": d.track_id, "class_name": d.class_name,
+                                                      "confidence": round(d.confidence, 3)} for d in dets],
+                                      updated=time.time())
             if max_frames and stats["frames"] >= max_frames:
                 break
             if is_live and min_dt:
@@ -76,6 +92,8 @@ def run(cfg: Dict[str, Any], *, sink: Optional[EvidenceSink] = None,
         for e in mgr.flush():
             _emit(e, sink, fh, stats)
     finally:
+        if preview is not None:
+            preview.close()
         src.release()
         if pan:
             pan.stop()
@@ -111,6 +129,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--max-frames", type=int)
     ap.add_argument("--events-out", help="write events as JSON lines")
     ap.add_argument("--send", action="store_true", help="enable posting to SkyGuard for this run")
+    ap.add_argument("--no-send", action="store_true", help="never post (e.g. when SkyGuard Centrum forwards the events)")
+    ap.add_argument("--preview-port", type=int, help="serve annotated MJPEG + /status on 127.0.0.1:PORT")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO if a.verbose else logging.WARNING,
@@ -134,7 +154,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         cfg["runtime"]["max_frames"] = a.max_frames
     if a.send:
         cfg["skyguard"]["enabled"] = True
-    stats = run(cfg, events_out=a.events_out)
+    if a.no_send:
+        cfg["skyguard"]["enabled"] = False
+    stats = run(cfg, events_out=a.events_out, preview_port=a.preview_port)
     print(json.dumps(stats, indent=2))
     return 0 if not stats["sink_errors"] else 2
 

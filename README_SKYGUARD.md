@@ -101,9 +101,24 @@ python -m pytest tests/skyguard_bridge -q
 python -m skyguard_bridge.mock_api --port 8787     # lokalna atrapa API do testów
 ```
 
+## SKYGUARD Centrum (PC)
+
+Na komputerze PixEagle działa jako część programu **SKYGUARD Centrum** (zakładka „Kamera AI”):
+Centrum sam go uruchamia i zatrzymuje (`python -m skyguard_bridge --no-send --events-out … --preview-port 8767`),
+pokazuje obraz z ramkami i ślady, a wykrycia przekazuje do API dowodów własnym forwarderem (token Centrum).
+Instalacja: `install.ps1 -WithPixEagle` w `tools/windows/skyguard-centrum` repozytorium SkyGuard.
+Podgląd: `GET http://127.0.0.1:8767/stream.mjpg`, `/snapshot.jpg`, `/status` (tylko localhost).
+
 ## Licencja i autorstwo
 
 PixEagle © Alireza Ghaderi i współtwórcy, licencja Apache 2.0 (plik `LICENSE`,
-projekt źródłowy: https://github.com/alireza787b/PixEagle). Moduł
+projekt źródłowy: https://github.com/alireza787b/PixEagle).
+
+**AGPL-3.0 (YOLO / Ultralytics):** detektor YOLO korzysta z pakietu `ultralytics`, który jest na licencji
+AGPL-3.0. Na PC to jest w porządku, dopóki ten fork jest **publiczny**, z nienaruszonymi plikami licencji
+i z kodem źródłowym dostępnym dla każdego, komu udostępniasz program (także przez sieć). Nie zamykaj tego
+forka i nie usuwaj `LICENSE`. Centrum (repo prywatne) uruchamia PixEagle jako osobny proces i rozmawia z nim
+przez pliki/HTTP. Tryb `detector.type: motion` nie używa Ultralytics. W aplikacji na telefon (APK) YOLO
+z Ultralytics nie jest używane – tam przewidziany jest model Apache-2.0 (YOLOX-Nano / NanoDet). Moduł
 `skyguard_bridge/` jest dodatkiem na tej samej licencji; kod PixEagle nie został zmieniony
 (dopisano tylko jedną linię w `.gitignore`).

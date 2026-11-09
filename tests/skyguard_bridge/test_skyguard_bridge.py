@@ -121,3 +121,19 @@ def test_global_event_cap():
     for i in range(20):
         out += m.update([Detection(100 + i, 0, "drone", 0.5, (1, 1, 5, 5))], 10.0 + i * 0.01, (64, 64))
     assert len(out) == 5 and m.dropped == 15
+
+
+def test_preview_server_status_and_snapshot():
+    import json as _json
+    import urllib.request
+    import numpy as np
+    from skyguard_bridge.preview import PreviewServer
+    srv = PreviewServer(0, max_fps=1000)
+    try:
+        srv.push(np.zeros((360, 640, 3), np.uint8), [Detection(1, 0, "drone", 0.9, (10, 10, 40, 30))])
+        srv.status["frames"] = 1
+        base = "http://127.0.0.1:%d" % srv.port
+        assert _json.loads(urllib.request.urlopen(base + "/status").read())["frames"] == 1
+        assert urllib.request.urlopen(base + "/snapshot.jpg").read()[:2] == b"\xff\xd8"
+    finally:
+        srv.close()
