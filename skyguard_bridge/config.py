@@ -32,7 +32,7 @@ DEFAULTS: Dict[str, Any] = {
             "user_env": "CLOUDEDGE_USER",
             "password_env": "CLOUDEDGE_PASSWORD",
             "port": 8554,
-            "stream": "main",           # main=101, sub=102
+            "stream": "sub",            # sub=102 detection FPS; main=101 full-res (recorder)
         },
         "ingest": {"host": "0.0.0.0", "port": 8765, "secret_env": "PIXEAGLE_INGEST_SECRET"},
     },

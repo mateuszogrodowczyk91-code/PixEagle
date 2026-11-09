@@ -181,7 +181,9 @@ def open_source(cfg: Dict[str, Any]) -> FrameSource:
     if t == "cloudedge":
         ce = dict(inp.get("cloudedge") or {})
         last_err = None
-        for stream in ("main", "sub"):  # 101 then 102
+        preferred = str(ce.get("stream") or "sub")  # sub=102 for detection FPS; main=101 full-res
+        order = [preferred] + [s for s in ("sub", "main") if s != preferred]
+        for stream in order:
             ce["stream"] = stream
             url, label = cloudedge_rtsp_url(ce)
             if url is None:
