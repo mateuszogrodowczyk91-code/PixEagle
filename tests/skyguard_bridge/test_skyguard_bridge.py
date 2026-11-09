@@ -137,3 +137,16 @@ def test_preview_server_status_and_snapshot():
         assert urllib.request.urlopen(base + "/snapshot.jpg").read()[:2] == b"\xff\xd8"
     finally:
         srv.close()
+
+
+def test_status_track_dict_has_center_norm():
+    from skyguard_bridge.tracks import Detection, status_track_dict
+    d = Detection(track_id=7, class_id=0, class_name="drone", confidence=0.88,
+                  bbox_xyxy=(100, 50, 300, 250))
+    tr = status_track_dict(d, 400, 400, ts=123.0)
+    assert tr["track_id"] == 7
+    assert tr["center_norm"] == [0.5, 0.375]
+    assert tr["bbox_norm"][0] == 0.25
+    assert tr["frame_w"] == 400
+    assert "updated" in tr
+

@@ -14,7 +14,7 @@ from .config import device_name, load_config
 from .detectors import build_detector
 from .sink import EvidenceSink
 from .sources import redact_log_line, OnvifPanReader, open_source
-from .tracks import TrackEventManager
+from .tracks import TrackEventManager, status_track_dict
 
 log = logging.getLogger("skyguard_bridge")
 
@@ -120,10 +120,16 @@ def run(cfg: Dict[str, Any], *, sink: Optional[EvidenceSink] = None,
                 if time.time() - fps_t >= 2.0:
                     stats["fps"] = round(fps_n / (time.time() - fps_t), 1)
                     fps_t, fps_n = time.time(), 0
-                preview.status.update(stats, video_source=src.label, frame_w=frame.shape[1], frame_h=frame.shape[0],
-                                      active_tracks=[{"track_id": d.track_id, "class_name": d.class_name,
-                                                      "confidence": round(d.confidence, 3)} for d in dets],
-                                      updated=time.time())
+                preview.status.update(
+                    stats,
+                    video_source=src.label,
+                    frame_w=frame.shape[1],
+                    frame_h=frame.shape[0],
+                    active_tracks=[
+                        status_track_dict(d, frame.shape[1], frame.shape[0], ts=ts) for d in dets
+                    ],
+                    updated=time.time(),
+                )
             if max_frames and stats["frames"] >= max_frames:
                 break
             if is_live and min_dt:
