@@ -124,7 +124,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--url", help="ptz/pixel stream URL (rtsp:// or http://)")
     ap.add_argument("--file")
     ap.add_argument("--webcam", type=int)
-    ap.add_argument("--detector", choices=["auto", "yolo", "motion"])
+    ap.add_argument("--detector", choices=["auto", "onnx", "directml", "yolo", "motion"])
     ap.add_argument("--all-classes", action="store_true", help="do not filter to aerial classes")
     ap.add_argument("--max-frames", type=int)
     ap.add_argument("--events-out", help="write events as JSON lines")

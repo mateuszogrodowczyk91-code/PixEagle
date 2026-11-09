@@ -53,8 +53,8 @@ DEFAULTS: Dict[str, Any] = {
         },
     },
     "detector": {
-        "type": "auto",                 # auto | yolo | motion
-        "model_path": "models/yolo26n.pt",
+        "type": "auto",                 # auto | onnx | directml | yolo | motion
+        "model_path": "models/yolo26n.onnx",
         "device": "cpu",
         "conf": 0.35,
         "iou": 0.3,
