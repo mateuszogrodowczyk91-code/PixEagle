@@ -1,0 +1,7 @@
+# SkyGuard passive sensor (detection only)
+numpy>=1.24
+pyyaml>=6.0
+opencv-python-headless>=4.8; platform_system != "Windows"
+opencv-python>=4.8; platform_system == "Windows"
+onnxruntime-directml>=1.16; platform_system == "Windows"
+onnxruntime>=1.16; platform_system != "Windows"
