@@ -169,22 +169,26 @@ class TrackEventManager:
 
 def status_track_dict(det: Detection, frame_w: int, frame_h: int, *, ts: Optional[float] = None) -> Dict[str, Any]:
     """Compact track for PreviewServer /status (Centrum auto-follow needs geometry)."""
-    w = max(1, int(frame_w))
-    h = max(1, int(frame_h))
+    w = int(frame_w)
+    h = int(frame_h)
     x1, y1, x2, y2 = (int(v) for v in det.bbox_xyxy)
-    cx = ((x1 + x2) / 2.0) / w
-    cy = ((y1 + y2) / 2.0) / h
     out: Dict[str, Any] = {
         "track_id": int(det.track_id),
         "class_id": int(det.class_id),
         "class_name": str(det.class_name),
         "confidence": round(float(det.confidence), 3),
         "bbox_xyxy": [x1, y1, x2, y2],
-        "bbox_norm": [round(x1 / w, 4), round(y1 / h, 4), round(x2 / w, 4), round(y2 / h, 4)],
-        "center_norm": [round(cx, 4), round(cy, 4)],
         "frame_w": w,
         "frame_h": h,
     }
+    if w <= 0 or h <= 0:
+        out["bbox_norm"] = None
+        out["center_norm"] = None
+    else:
+        cx = ((x1 + x2) / 2.0) / w
+        cy = ((y1 + y2) / 2.0) / h
+        out["bbox_norm"] = [round(x1 / w, 4), round(y1 / h, 4), round(x2 / w, 4), round(y2 / h, 4)]
+        out["center_norm"] = [round(cx, 4), round(cy, 4)]
     if ts is not None:
         out["updated"] = float(ts)
     return out

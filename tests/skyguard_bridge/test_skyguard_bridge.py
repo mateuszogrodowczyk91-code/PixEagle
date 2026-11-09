@@ -150,3 +150,20 @@ def test_status_track_dict_has_center_norm():
     assert tr["frame_w"] == 400
     assert "updated" in tr
 
+
+def test_status_track_dict_zero_frame_returns_none_norms():
+    from skyguard_bridge.tracks import Detection, status_track_dict
+    d = Detection(track_id=1, class_id=0, class_name="drone", confidence=0.5,
+                  bbox_xyxy=(10, 10, 20, 20))
+    tr = status_track_dict(d, 0, 400)
+    assert tr["center_norm"] is None
+    assert tr["bbox_norm"] is None
+    assert tr["frame_w"] == 0
+    assert tr["frame_h"] == 400
+    tr2 = status_track_dict(d, 640, 0)
+    assert tr2["center_norm"] is None
+    assert tr2["bbox_norm"] is None
+    tr3 = status_track_dict(d, -1, -1)
+    assert tr3["center_norm"] is None
+    assert tr3["bbox_norm"] is None
+
