@@ -65,7 +65,14 @@ class CvSource(FrameSource):
         if isinstance(target, str) and target.lower().startswith("rtsp://"):
             os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
         self.target, self.label, self.loop = target, label, loop
-        self.cap = cv2.VideoCapture(target)
+        if isinstance(target, int) and os.name == "nt":
+            self.cap = cv2.VideoCapture(target, cv2.CAP_DSHOW)
+            if not self.cap.isOpened():
+                self.cap = cv2.VideoCapture(target, cv2.CAP_MSMF)
+            if not self.cap.isOpened():
+                self.cap = cv2.VideoCapture(target)
+        else:
+            self.cap = cv2.VideoCapture(target)
         if not self.cap.isOpened():
             raise RuntimeError(f"cannot open video input: {label}")
 
