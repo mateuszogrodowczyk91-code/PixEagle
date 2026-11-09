@@ -21,6 +21,12 @@ except ImportError:  # pragma: no cover
     cv2 = None
 
 
+
+def redact_log_line(line: str) -> str:
+    """Strip userinfo from any rtsp/http URL that leaked into a log line (OpenCV/ffmpeg)."""
+    return re.sub(r"(?i)(rtsp|http|https)://[^/\s:@]+:[^/\s@]+@", r"\1://***:***@", line)
+
+
 def redact_url(url: str) -> str:
     """Drop user:password and secret-looking query values from a URL."""
     try:
@@ -63,12 +69,11 @@ class CvSource(FrameSource):
         if cv2 is None:
             raise RuntimeError("opencv-python is required")
         self.target, self.label, self.loop = target, label, loop
+        safe = redact_url(label) if isinstance(label, str) else str(label)
         if isinstance(target, str) and target.lower().startswith("rtsp://"):
-            # Force FFMPEG + TCP. Without CAP_FFMPEG, Windows builds may try CAP_IMAGES and leak the URL into errors.
+            # CAP_FFMPEG only — never fall back to default backends (CAP_IMAGES logs the full URL with credentials).
             os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
             self.cap = cv2.VideoCapture(target, cv2.CAP_FFMPEG)
-            if not self.cap.isOpened():
-                self.cap = cv2.VideoCapture(target)
         elif isinstance(target, int) and os.name == "nt":
             self.cap = cv2.VideoCapture(target, cv2.CAP_DSHOW)
             if not self.cap.isOpened():
@@ -78,7 +83,7 @@ class CvSource(FrameSource):
         else:
             self.cap = cv2.VideoCapture(target)
         if not self.cap.isOpened():
-            raise RuntimeError(f"cannot open video input: {redact_url(label) if isinstance(label, str) else label}")
+            raise RuntimeError(f"cannot open video input: {safe}")
 
     def read(self):
         ok, frame = self.cap.read()
@@ -193,7 +198,7 @@ def open_source(cfg: Dict[str, Any]) -> FrameSource:
             except RuntimeError as e:
                 last_err = e
         # USB webcam fallback when RTSP will not open
-        if bool(inp.get("webcam_fallback", True)):
+        if bool(inp.get("webcam_fallback", False)):
             idx = int(inp.get("webcam_index", 0))
             try:
                 return CvSource(idx, inp.get("label") or f"webcam {idx} (cloudedge fallback)")

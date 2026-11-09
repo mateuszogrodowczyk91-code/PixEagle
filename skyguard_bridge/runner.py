@@ -13,7 +13,7 @@ from . import safety
 from .config import device_name, load_config
 from .detectors import build_detector
 from .sink import EvidenceSink
-from .sources import OnvifPanReader, open_source
+from .sources import redact_log_line,  OnvifPanReader, open_source
 from .tracks import TrackEventManager
 
 log = logging.getLogger("skyguard_bridge")

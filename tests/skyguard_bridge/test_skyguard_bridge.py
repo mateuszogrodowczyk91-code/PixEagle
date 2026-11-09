@@ -71,7 +71,7 @@ def test_secrets_not_in_labels(monkeypatch):
     monkeypatch.setenv("CLOUDEDGE_IP", "192.168.1.20")
     monkeypatch.setenv("CLOUDEDGE_PASSWORD", "p@ss/word")
     url, label = cloudedge_rtsp_url(DEFAULTS["input"]["cloudedge"])
-    assert url.endswith("@192.168.1.20:8554/Streaming/Channels/101") and "p%40ss%2Fword" in url
+    assert url.endswith("@192.168.1.20:8554/Streaming/Channels/102") and "p%40ss%2Fword" in url
     assert "p@ss" not in label and "admin" not in label
     monkeypatch.delenv("CLOUDEDGE_PASSWORD")
     assert cloudedge_rtsp_url(DEFAULTS["input"]["cloudedge"])[0] is None
